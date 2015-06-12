@@ -1,0 +1,101 @@
+---
+title: "TM_Workshop - Music Survey Data"
+output: html_document
+---
+
+Start And Initial Text Preprocessing
+=====================================
+```{r}
+library('tm')
+music <- read.delim("music_survey.txt", header=TRUE, sep="\t")
+plot(music$Product)
+pos.v <- character(0)
+View(music)
+pos.v <- music$like_most
+neg.v <- music$like_least
+pos.v
+
+all.corpus <- Corpus(VectorSource(pos.v))
+inspect(all.corpus)
+
+#pre-processing
+
+#Remove extra whitespace
+all.corpus <- tm_map(all.corpus, stripWhitespace)
+inspect(all.corpus)
+
+#Convert to lowercase
+all.corpus <- tm_map(all.corpus, content_transformer(tolower))
+inspect(all.corpus)
+
+#Remove punctuations
+all.corpus <- tm_map(all.corpus, removePunctuation)
+inspect(all.corpus)
+
+#REmove stopwords - "english" is the default stopword file that comes with the tm package in the stopwords
+# folder.
+all.cstop <- tm_map(all.corpus, removeWords, stopwords("english"))
+inspect(all.cstop)
+```
+
+Stemming
+==========
+```{r}
+#try this command, if it fails, then need to install Snowballc package
+all.cstem <- tm_map((all.cstop), stemDocument)
+inspect(all.cstem)
+
+```
+
+DTM vs TDM
+================
+Document Term Matrix - Documents as rows, terms as columns
+Term Document Matrix - Terms as rows, documents as columns
+
+```{r}
+#try with stopwords removed
+all.dtm <- DocumentTermMatrix(all.cstop)
+all.dtm
+
+#The Effect of Stemming
+allstem.dtm <- DocumentTermMatrix(all.cstem)
+allstem.dtm
+```
+
+From this exercise, we can appreciate the value of Stemming by reducing the size of the matrix.
+
+With that in mind, we move on to the next step of removing Sparse Terms.
+
+Remove Sparse Terms
+=========================
+```{r}
+allstemns.dtm <- removeSparseTerms(allstem.dtm, 0.95)
+allstems.dtm
+inspect(allstems.dtm)
+```
+
+TF-IDF Indexing
+======================
+```{r}
+#index documents with tfidf
+allstem.tfidf <- DocumentTermMatrix(
+                  all.cstem,
+                  control = list(weighting = function(x)
+                  weightTfIdf(x, normalize = FALSE),
+                  stopwords = TRUE))
+
+#remove very sparse terms
+allstemns.tfidf <- removeSparseTerms(allstem.tfidf, 0.95)
+
+#Use document term matrix as a matrix and find total frequency for each term and sort in decreasing order
+all.sorted <- sort(colSums(as.matrix(allstemns.dtm)), decreasing=TRUE)
+```
+
+Visualize as Wordcloud
+=========================
+```{r}
+require(wordcloud)
+all.df <- data.frame(word = names(all.sorted), freq = all.sorted)
+
+wordcloud(all.df$word, all.df$freq)
+```
